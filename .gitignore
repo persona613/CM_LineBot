@@ -3,3 +3,6 @@ yolov5*/
 
 __pycache__/
 
+ngro*
+
+*.png
