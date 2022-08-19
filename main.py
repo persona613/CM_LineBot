@@ -1,8 +1,7 @@
 import numpy as np
 from PIL import Image, ImageOps
 from flask import Flask, request, abort
-from flask_ngrok import run_with_ngrok
-
+# from flask_ngrok import run_with_ngrok
 
 from linebot import (
     LineBotApi, WebhookHandler
@@ -21,14 +20,33 @@ from linebot.models import (
 from linebot.models.template import (
     ButtonsTemplate, CarouselTemplate, ConfirmTemplate, ImageCarouselTemplate    
 )
-from linebot.models.template import *
+
+# from linebot.models.template import *
 
 import json
 
 # import CM_LineBot funtions
 from cm_utils.utils import yolov5, naming
-from cm_utils.utils import get_ngrok_url
+# from cm_utils.utils import get_ngrok_url
 
+# 圖片下載與上傳專用
+import urllib.request
+import os
+
+# 建立日誌紀錄設定檔
+# https://googleapis.dev/python/logging/latest/stdlib-usage.html
+import logging
+import google.cloud.logging
+from google.cloud.logging.handlers import CloudLoggingHandler
+
+# 啟用log的客戶端
+client = google.cloud.logging.Client()
+
+# 建立line event log，用來記錄line event
+bot_event_handler = CloudLoggingHandler(client,name="cmlinebot_event")
+bot_event_logger = logging.getLogger('cmlinebot_event')
+bot_event_logger.setLevel(logging.INFO)
+bot_event_logger.addHandler(bot_event_handler)
 
 # load dialogue dict
 file_jd = open('dialogue_dict.json', 'r', encoding='utf-8')
@@ -36,18 +54,14 @@ jd = json.load(file_jd)
 file_jd.close()
 
 
-# 設定server啟用細節 
-app = Flask(__name__, static_url_path='/material', static_folder='./material')
-# run_with_ngrok(app) # for colab test
 
-
-# line api設定
+app = Flask(__name__)
+# 註冊機器人
 line_bot_api = LineBotApi('Channel_Access_Token')
 handler = WebhookHandler('Channel_Secret')
 
 
-
-# Linebot 官方程序，驗證
+# 設定機器人訪問入口
 @app.route('/callback', methods=['POST'])
 def callback():
     # get X-Line-Signature header value
@@ -55,7 +69,10 @@ def callback():
 
     # get request body as text
     body = request.get_data(as_text=True)
-    app.logger.info('Request body: ' + body)
+    # app.logger.info('Request body: ' + body)
+
+    # 消息整個交給bot_event_logger，請它傳回GCP
+    bot_event_logger.info(body)
 
     # handle webhook body
     try:
@@ -71,14 +88,17 @@ def callback():
 # 
 # for testing linebot
 # 當用戶收到文字消息的時候，回傳用戶講過的話
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    # 請line_bot_api回應，回應用戶講過的話
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=event.message.text))
+# @handler.add(MessageEvent, message=TextMessage)
+# def handle_message(event):
+#     # 請line_bot_api回應，回應用戶講過的話
+#     line_bot_api.reply_message(
+#         event.reply_token,
+#         TextSendMessage(text=event.message.text))
 
 
+# 新增功能:follow時 取個資
+from google.cloud import storage
+from google.cloud import firestore
 # 監看Follow事件, reply service info
 from linebot.models.events import (
     FollowEvent
@@ -86,36 +106,124 @@ from linebot.models.events import (
 
 @handler.add(FollowEvent)
 def reply_text_and_get_user_profile(event):
+
+    # 取個資
+    line_user_profile = line_bot_api.get_profile(event.source.user_id)
+
+    # 跟line 取回照片，並放置在本地端
+    file_name = line_user_profile.user_id+'.png'
+    urllib.request.urlretrieve(line_user_profile.picture_url, file_name)
+
+    # 設定storage內容
+    storage_client = storage.Client()
+    bucket_name = "cmlinebot-gcp-storage"
+    destination_blob_name = f"{line_user_profile.user_id}/user_pic.png"
+    source_file_name = file_name
     
+    # 進行上傳
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_filename(source_file_name)
+
+    # 設定用戶資料json
+    user_dict={
+        "user_id":line_user_profile.user_id,
+        "picture_url": f"https://storage.googleapis.com/{bucket_name}/{destination_blob_name}",
+        "display_name": line_user_profile.display_name,
+        "status_message": line_user_profile.status_message
+    }
+    # 插入firestore
+    db = firestore.Client()
+    doc_ref = db.collection(u'line-user').document(user_dict.get("user_id"))
+    doc_ref.set(user_dict)
+
+    # line_bot_api.reply_message(
+    # event.reply_token,
+    # TextSendMessage(text="個資已取"))
+    
+    # 刪除本地端檔案
+    os.remove(file_name)
+
+    # reply service info
     line_bot_api.reply_message(event.reply_token, FlexSendMessage(
               alt_text='介紹',
               contents=jd['p1']
     ))
 
 
+
 # 接收圖像, 回傳預測結果字串及圖片
 @handler.add(MessageEvent, message=ImageMessage)
-def handle_message(event):
+def handle_image_message(event):
 
-    message_id = event.message.id
-    message_content = line_bot_api.get_message_content(message_id)
+    # 取出照片
+    image_blob = line_bot_api.get_message_content(event.message.id)
+    temp_file_path=f"""{event.message.id}.png"""
 
-    path = './userimg/'+ event.message.id + '.png'
-    with open(path, 'wb') as fd:
-        for chunk in message_content.iter_content():
+    with open(temp_file_path, 'wb') as fd:
+        for chunk in image_blob.iter_content():
             fd.write(chunk)
-    # 圖存於colab機器端
+
+    # 上傳 待預測圖片至cloud storage
+    storage_client = storage.Client()
+    bucket_name = "cmlinebot-gcp-storage"
+    destination_blob_name = f'{event.source.user_id}/image/{event.message.id}.png'
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_filename(temp_file_path)
 
     # model
-    model_output = yolov5(path)
+    model_output = yolov5(temp_file_path)
     name_output = naming(model_output) # str
     # box_output = boxing(model_output, path) # url 
+    
+    # 上傳預測結果 renderout 圖片到cloud storage
+    # yolov5函式輸出時 已覆蓋本地端 初始圖片temp_file_path
+    storage_client = storage.Client()
+    # bucket_name = "cmlinebot-gcp-storage"
+    destination_blob_name = f'{event.source.user_id}/image/{event.message.id}'+'_out.png'
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_filename(temp_file_path)
+
+    # ready for access token
+    # import google.auth
+    # credentials, _ = google.auth.default()
+
+    # Perform a refresh request to get the access token of the current credentials (Else, it's None)
+    # from google.auth.transport import requests
+    # r = requests.Request()
+    # credentials.refresh(r)
+
+    # set signed url expiration time
+    from datetime import datetime, timedelta 
+    expires = datetime.now() + timedelta(minutes=15)
+
+    # In case of user credential use, define manually the service account to use (for development purpose only)
+    # service_account_email = "YOUR DEV SERVICE ACCOUNT"
+    # If you use a service account credential, you can use the embedded email
+    # if hasattr(credentials, "service_account_email"):
+        # service_account_email = credentials.service_account_email
+
+    # generate reply img url
+    storage_client = storage.Client()
+    bucket_name = "cmlinebot-gcp-storage"
+    destination_blob_name = f'{event.source.user_id}/image/{event.message.id}'+'_out.png'
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.get_blob(destination_blob_name)    
+    reply_img_url = blob.generate_signed_url(
+        expiration=expires, 
+        version='v4',
+        method='GET'
+        # service_account_email=service_account_email, 
+        # access_token=credentials.token
+    )
+        
 
     # reply image url 
     # ngrok_url = "https://b5ed-35-204-95-221.ngrok.io"
-    ngrok_url = get_ngrok_url()
-    
-    reply_img_url = ngrok_url + "/material/" + event.message.id + ".png"
+    # ngrok_url = get_ngrok_url()    
+    # reply_img_url = ngrok_url + "/material/" + event.message.id + ".png"
 
     # reply box img and cm names of boxes
     line_bot_api.reply_message(
@@ -128,12 +236,14 @@ def handle_message(event):
         TextSendMessage(text=name_output)] # name str
     )
 
+    # 移除本地端圖片
+    os.remove(temp_file_path)
 
 
 # 監看postback中的data
 # 用於對話json內容中的按鈕action
 @handler.add(PostbackEvent)
-def handle_message(event):
+def handle_postback_message(event):
     reply_token = event.reply_token
     message = event.postback.data
 
@@ -217,7 +327,7 @@ def handle_message(event):
 # 監看message event
 # 部分選單功能與使用者輸入(關鍵字)
 @handler.add(MessageEvent)
-def handle_message(event):
+def handle_keyword_message(event):
     reply_token = event.reply_token
     message = event.message.text
 
@@ -534,15 +644,8 @@ def handle_message(event):
         line_bot_api.reply_message(reply_token, [
                         FlexSendMessage(alt_text='外星人濕熱體質症狀', contents = jd['p16']),                        
         ])
-
-
-
-
-
-
-
-
+        
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
 

@@ -3,8 +3,10 @@ import json
 import requests
 
 
+
 # yolo v5 model, downloan to your personal good drive and connect google drive to colab
 def yolov5(img):
+
     import io
     import torch
     
@@ -34,11 +36,15 @@ def yolov5(img):
         # updates results.imgs with boxes and labels
         imgs = results.render()
         im = Image.fromarray(imgs[0])
+
         # take image's file name
-        im_name = img.rsplit('/',1)[-1]
+        # im_name = img.rsplit('/',1)[-1]
+
         # save image at local
-        im_savepath = f'./material/{im_name}'
-        im.save(im_savepath)
+        # im_savepath = f'{im_name}'
+        
+        # 存檔, 覆蓋掉本地端 原待預測圖片
+        im.save(img)
 
 
 def naming(output):
@@ -58,5 +64,4 @@ def get_ngrok_url():
     res_json = json.loads(res_unicode)
     for i in res_json["tunnels"]:
         if i['name'] == 'command_line':
-            return i['public_url']
-            break
+            return i['public_url']            
