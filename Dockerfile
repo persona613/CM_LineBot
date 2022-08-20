@@ -6,20 +6,21 @@ FROM python:3.9-slim
 ENV PYTHONUNBUFFERED True
 
 # Copy local code to the container image.
-ENV APP_HOME /main
+ENV APP_HOME /app
 WORKDIR $APP_HOME
 
-RUN apt-get update && apt-get install -y git
+RUN apt-get update && apt-get install -y git && \
+    apt-get install ffmpeg libsm6 libxext6  -y
 
-RUN git clone https://github.com/ultralytics/yolov5
+RUN git clone https://github.com/ultralytics/yolov5 yolov5
 
 COPY . ./
 
 # Install production dependencies.
 RUN pip install --upgrade pip && \
     pip install -r requirements_init.txt && \
-    pip install -r https://raw.githubusercontent.com/ultralytics/yolov5/master/requirements.txt
-    
+    pip install -r https://raw.githubusercontent.com/ultralytics/yolov5/master/requirements.txt    
+
 # Run the web service on container startup. Here we use the gunicorn
 # webserver, with one worker process and 8 threads.
 # For environments with multiple CPU cores, increase the number of workers

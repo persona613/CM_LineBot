@@ -196,8 +196,8 @@ def handle_image_message(event):
     # credentials.refresh(r)
 
     # set signed url expiration time
-    from datetime import datetime, timedelta 
-    expires = datetime.now() + timedelta(minutes=15)
+    # from datetime import datetime, timedelta 
+    # expires = datetime.now() + timedelta(minutes=15)
 
     # In case of user credential use, define manually the service account to use (for development purpose only)
     # service_account_email = "YOUR DEV SERVICE ACCOUNT"
@@ -206,19 +206,25 @@ def handle_image_message(event):
         # service_account_email = credentials.service_account_email
 
     # generate reply img url
-    storage_client = storage.Client()
-    bucket_name = "cmlinebot-gcp-storage"
-    destination_blob_name = f'{event.source.user_id}/image/{event.message.id}'+'_out.png'
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.get_blob(destination_blob_name)    
-    reply_img_url = blob.generate_signed_url(
-        expiration=expires, 
-        version='v4',
-        method='GET'
+    # storage_client = storage.Client()
+    # bucket_name = "cmlinebot-gcp-storage"
+    # destination_blob_name = f'{event.source.user_id}/image/{event.message.id}'+'_out.png'
+    # bucket = storage_client.bucket(bucket_name)
+    # blob = bucket.get_blob(destination_blob_name)    
+    # reply_img_url = blob.generate_signed_url(
+    #     expiration=expires, 
+    #     version='v4',
+    #     method='GET'
         # service_account_email=service_account_email, 
         # access_token=credentials.token
-    )
+    # )
         
+    
+    # reply img url from cloud storage
+    url_base = "https://storage.googleapis.com/"
+    url_path= f"{bucket_name}/{event.source.user_id}/image/{event.message.id}"+"_out.png"
+    reply_img_url = url_base + url_path
+
 
     # reply image url 
     # ngrok_url = "https://b5ed-35-204-95-221.ngrok.io"
