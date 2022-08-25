@@ -328,7 +328,83 @@ def handle_postback_message(event):
                         FlexSendMessage(alt_text='特稟體質建議', contents = jd['p14']),
                         
         ])
-
+"""deprecated    
+    # postback data of game
+    elif (message == '留在地球'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        FlexSendMessage(alt_text='留在地球', contents = jd['g4']),                        
+        ]) 
+    elif (message == '進入外太空'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        FlexSendMessage(alt_text='進入外太空', contents = jd['g3']),
+                        FlexSendMessage(alt_text='進入外太空', contents = jd['g5'])                        
+        ])  
+    elif (message == '我準備好了'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        FlexSendMessage(alt_text='我準備好了', contents = jd['g6']),                        
+        ]) 
+    elif (message == '易有口臭'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        TextSendMessage(text=jd['g11']),
+                        FlexSendMessage(alt_text='我準備好了', contents = jd['g6']),                    
+        ]) 
+    elif (message == '易長痘痘濕疹'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        TextSendMessage(text=jd['g11']),
+                        FlexSendMessage(alt_text='我準備好了', contents = jd['g6']),
+        ]) 
+    elif (message == '易口渴'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        TextSendMessage(text=jd['g11']),
+                        FlexSendMessage(alt_text='我準備好了', contents = jd['g6']),                    
+        ]) 
+    elif (message == '易噁心嘔吐'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        TextSendMessage(text=jd['g11']),
+                        FlexSendMessage(alt_text='我準備好了', contents = jd['g6']),                    
+        ]) 
+    elif (message == '以上皆是'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        TextSendMessage(text=jd['g14']),
+                        FlexSendMessage(alt_text='以上皆是', contents = jd['g8']),                  
+        ])
+    elif (message == '八味帶下方'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        TextSendMessage(text=jd['g7']),
+                        FlexSendMessage(alt_text='八味帶下方', contents = jd['g9']),                    
+        ]) 
+    elif (message == '清肺湯'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        TextSendMessage(text=jd['g11']),
+                        FlexSendMessage(alt_text='以上皆是', contents = jd['g8']),                    
+        ]) 
+    elif (message == '十全大補湯'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        TextSendMessage(text=jd['g11']),
+                        FlexSendMessage(alt_text='以上皆是', contents = jd['g8']),                    
+        ]) 
+    elif (message == '尋找夥伴'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        FlexSendMessage(alt_text='尋找夥伴', contents = jd['10']),                    
+        ]) 
+    elif (message == '單打獨鬥'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        TextSendMessage(text=jd['g12']),                    
+        ]) 
+"""
 
 # 監看message event
 # 部分選單功能與使用者輸入(關鍵字)
@@ -650,7 +726,25 @@ def handle_keyword_message(event):
         line_bot_api.reply_message(reply_token, [
                         FlexSendMessage(alt_text='外星人濕熱體質症狀', contents = jd['p16']),                        
         ])
+    elif (message == '影像辨識'):
         
+        line_bot_api.reply_message(reply_token, [
+                        TextSendMessage(text='拍照或上傳相片。請用白色或淺色背景，置放於中央。若是多樣藥材，勿重疊。辨識與回傳結果約10秒。'),                        
+                        TextSendMessage(text='若須測試圖片，連結如下：https://drive.google.com/drive/folders/1WVoHNW6SeEtGjOHwuFocya6NH-TfY5ho?usp=sharing'),                        
+        ])
+"""deprecated
+    elif (message == '進入遊戲'):
+        
+        line_bot_api.reply_message(reply_token, [
+                        FlexSendMessage(alt_text='進入遊戲', contents = jd['g1']),                        
+        ])
+    elif (message == '遊戲開始'):
+    
+        line_bot_api.reply_message(reply_token, [
+                        FlexSendMessage(alt_text='遊戲開始', contents = jd['g2']),                        
+        ])       
+"""
+      
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
