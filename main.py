@@ -187,43 +187,44 @@ def handle_image_message(event):
     blob.upload_from_filename(temp_file_path)
 
     # ready for access token
-    # import google.auth
-    # credentials, _ = google.auth.default()
+    import google.auth
+    credentials, proj_id = google.auth.default()
 
     # Perform a refresh request to get the access token of the current credentials (Else, it's None)
-    # from google.auth.transport import requests
-    # r = requests.Request()
-    # credentials.refresh(r)
+    from google.auth.transport import requests
+    r = requests.Request()
+    credentials.refresh(r)    
 
+    # prepare for generate reply img url
+    storage_client = storage.Client()
+    bucket_name = "cmlinebot-gcp-storage"
+    destination_blob_name = f'{event.source.user_id}/image/{event.message.id}'+'_out.png'
+    bucket = storage_client.get_bucket(bucket_name)
+    blob = bucket.get_blob(destination_blob_name) 
     # set signed url expiration time
-    # from datetime import datetime, timedelta 
-    # expires = datetime.now() + timedelta(minutes=15)
+    from datetime import datetime, timedelta 
+    expires = datetime.now() + timedelta(minutes=15)
 
     # In case of user credential use, define manually the service account to use (for development purpose only)
     # service_account_email = "YOUR DEV SERVICE ACCOUNT"
     # If you use a service account credential, you can use the embedded email
-    # if hasattr(credentials, "service_account_email"):
-        # service_account_email = credentials.service_account_email
-
+    if hasattr(credentials, "service_account_email"):
+        service_account_email = credentials.service_account_email
+    
     # generate reply img url
-    # storage_client = storage.Client()
-    # bucket_name = "cmlinebot-gcp-storage"
-    # destination_blob_name = f'{event.source.user_id}/image/{event.message.id}'+'_out.png'
-    # bucket = storage_client.bucket(bucket_name)
-    # blob = bucket.get_blob(destination_blob_name)    
-    # reply_img_url = blob.generate_signed_url(
-    #     expiration=expires, 
-    #     version='v4',
-    #     method='GET'
-        # service_account_email=service_account_email, 
-        # access_token=credentials.token
-    # )
+    reply_img_url = blob.generate_signed_url(
+        expiration=expires, 
+        version='v4',
+        method='GET',
+        service_account_email=service_account_email, 
+        access_token=credentials.token
+    )
         
     
-    # reply img url from cloud storage
-    url_base = "https://storage.googleapis.com/"
-    url_path= f"{bucket_name}/{event.source.user_id}/image/{event.message.id}"+"_out.png"
-    reply_img_url = url_base + url_path
+    # reply img url from cloud storage setting public
+    # url_base = "https://storage.googleapis.com/"
+    # url_path= f"{bucket_name}/{event.source.user_id}/image/{event.message.id}"+"_out.png"
+    # reply_img_url = url_base + url_path
 
 
     # reply image url 
